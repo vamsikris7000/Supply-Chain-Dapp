@@ -145,21 +145,14 @@ contract SupplyChain {
     {
         address thirdParty;
         string memory transaction;
-        string memory thirdPartyLongitude;
-        string memory thirdPartyLatitude;
 
         address deliveryHub;
-        string memory deliveryHubLongitude;
-        string memory deliveryHubLatitude;
+
         address customer;
 
         product.thirdparty.thirdParty = thirdParty;
-        product.thirdparty.thirdPartyLongitude = thirdPartyLongitude;
-        product.thirdparty.thirdPartyLatitude = thirdPartyLatitude;
 
         product.deliveryhub.deliveryHub = deliveryHub;
-        product.deliveryhub.deliveryHubLongitude = deliveryHubLongitude;
-        product.deliveryhub.deliveryHubLatitude = deliveryHubLatitude;
 
         product.customer = customer;
         product.transaction = transaction;
@@ -182,8 +175,6 @@ contract SupplyChain {
     function manufactureProduct(
         string memory manufacturerName,
         string memory manufacturerDetails,
-        string memory manufacturerLongitude,
-        string memory manufacturerLatitude,
         string memory productName,
         uint256 productCode,
         uint256 productPrice,
@@ -196,8 +187,6 @@ contract SupplyChain {
         product.uid = _uid;
         product.manufacturer.manufacturerName = manufacturerName;
         product.manufacturer.manufacturerDetails = manufacturerDetails;
-        product.manufacturer.manufacturerLongitude = manufacturerLongitude;
-        product.manufacturer.manufacturerLatitude = manufacturerLatitude;
         product.manufacturer.manufacturedDate = block.timestamp;
 
         product.owner = msg.sender;
@@ -249,9 +238,7 @@ contract SupplyChain {
 
     ///@dev STEP 4 : Received the purchased product shipped by Manufacturer.
     function receiveByThirdParty(
-        uint256 _uid,
-        string memory thirdPartyLongitude,
-        string memory thirdPartyLatitude
+        uint256 _uid
     )
         public
         shippedByManufacturer(_uid)
@@ -259,8 +246,6 @@ contract SupplyChain {
     {
         require(hasThirdPartyRole(msg.sender));
         products[_uid].owner = msg.sender;
-        products[_uid].thirdparty.thirdPartyLongitude = thirdPartyLongitude;
-        products[_uid].thirdparty.thirdPartyLatitude = thirdPartyLatitude;
         products[_uid].productState = Structure.State.ReceivedByThirdParty;
         productHistory[_uid].history.push(products[_uid]);
 
@@ -295,15 +280,11 @@ contract SupplyChain {
 
     ///@dev STEP 8 : Receiveing of product by delivery hub purchased by customer.
     function receiveByDeliveryHub(
-        uint256 _uid,
-        string memory deliveryHubLongitude,
-        string memory deliveryHubLatitude
+        uint256 _uid
     ) public shippedByThirdParty(_uid) {
         require(hasDeliveryHubRole(msg.sender));
         products[_uid].owner = msg.sender;
         products[_uid].deliveryhub.deliveryHub = msg.sender;
-        products[_uid].deliveryhub.deliveryHubLongitude = deliveryHubLongitude;
-        products[_uid].deliveryhub.deliveryHubLatitude = deliveryHubLatitude;
         products[_uid].productState = Structure.State.ReceivedByDeliveryHub;
         productHistory[_uid].history.push(products[_uid]);
 
@@ -371,9 +352,7 @@ contract SupplyChain {
             product.owner,
             product.manufacturer.manufacturer,
             product.manufacturer.manufacturerName,
-            product.manufacturer.manufacturerDetails,
-            product.manufacturer.manufacturerLongitude,
-            product.manufacturer.manufacturerLatitude
+            product.manufacturer.manufacturerDetails
         );
     }
 
@@ -441,10 +420,7 @@ contract SupplyChain {
             product = productHistory[_uid].history[i];
         }
         return (
-            product.thirdparty.thirdPartyLatitude,
             product.deliveryhub.deliveryHub,
-            product.deliveryhub.deliveryHubLongitude,
-            product.deliveryhub.deliveryHubLatitude,
             product.customer,
             product.transaction
         );

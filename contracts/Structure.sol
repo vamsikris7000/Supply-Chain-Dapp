@@ -17,8 +17,6 @@ library Structure {
         address manufacturer;
         string manufacturerName;
         string manufacturerDetails;
-        string manufacturerLongitude;
-        string manufacturerLatitude;
         uint256 manufacturedDate;
     }
     struct ProductDetails {
@@ -29,13 +27,9 @@ library Structure {
     }
     struct ThirdPartyDetails {
         address thirdParty;
-        string thirdPartyLongitude;
-        string thirdPartyLatitude;
     }
     struct DeliveryHubDetails {
         address deliveryHub;
-        string deliveryHubLongitude;
-        string deliveryHubLatitude;
     }
     struct Product {
         uint256 uid;

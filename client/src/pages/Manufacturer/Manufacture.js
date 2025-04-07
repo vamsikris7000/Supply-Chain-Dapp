@@ -6,6 +6,7 @@ import Navbar from "../../components/Navbar";
 import { useStyles } from "../../components/Styles";
 import Grid from "@material-ui/core/Grid";
 import Loader from "../../components/Loader";
+import axios from "axios";
 
 export default function Manufacture(props) {
     const supplyChainContract = props.supplyChainContract;
@@ -13,6 +14,7 @@ export default function Manufacture(props) {
     const { roles } = useRole();
     const [loading, setLoading] = React.useState(false);
     const [fvalid, setfvalid] = React.useState(false);
+    const API_URL = "http://localhost:5000/api";
     const navItem = [
         ["Add Product", "/manufacturer/manufacture"],
         ["Ship Product", "/manufacturer/ship"],
@@ -42,22 +44,53 @@ export default function Manufacture(props) {
         
         if (manuForm.manufacturerName !== "" && manuForm.manufacturerDetails !== "" && manuForm.manufacturerLongitude !== "" && manuForm.manufacturerLatitude !== "" && manuForm.productName !== "" && manuForm.productCode !== 0 && manuForm.productPrice !== 0 && manuForm.productCategory !== "") {
             setfvalid(false);
+            let txHash = "";
             await supplyChainContract.methods.manufactureProduct(manuForm.manufacturerName, manuForm.manufacturerDetails, manuForm.manufacturerLongitude, manuForm.manufacturerLatitude, manuForm.productName, parseInt(manuForm.productCode), parseInt(manuForm.productPrice), manuForm.productCategory).send({ from: roles.manufacturer, gas: 999999 })
                 // .then(console.log)
                 .on('transactionHash', function (hash) {
+                    txHash = hash;
                     handleSetTxhash(hash);
                 });
-                setManuForm({
-                    id: 0,
-                    manufacturerName: "",
-                    manufacturerDetails: "",
-                    manufacturerLongitude: "",
-                    manufacturerLatitude: "",
-                    productName: "",
-                    productCode: 0,
-                    productPrice: 0,
-                    productCategory: "",
-                })
+                
+            // Save to MongoDB
+            try {
+                // Get the product ID
+                const productCount = await supplyChainContract.methods.productId().call();
+                const productId = parseInt(productCount) - 1; // The ID of the product just created
+                
+                const productToSave = {
+                    productId: productId,
+                    manufacturerName: manuForm.manufacturerName,
+                    manufacturerDetails: manuForm.manufacturerDetails,
+                    manufacturerLocation: {
+                        longitude: manuForm.manufacturerLongitude,
+                        latitude: manuForm.manufacturerLatitude,
+                    },
+                    productName: manuForm.productName,
+                    productCode: parseInt(manuForm.productCode),
+                    productPrice: parseInt(manuForm.productPrice),
+                    productCategory: manuForm.productCategory,
+                    currentOwner: roles.manufacturer,
+                    transactionHash: txHash,
+                };
+                
+                await axios.post(`${API_URL}/products`, productToSave);
+                console.log("Product saved to MongoDB");
+            } catch (error) {
+                console.error("Error saving product to MongoDB:", error);
+            }
+            
+            setManuForm({
+                id: 0,
+                manufacturerName: "",
+                manufacturerDetails: "",
+                manufacturerLongitude: "",
+                manufacturerLatitude: "",
+                productName: "",
+                productCode: 0,
+                productPrice: 0,
+                productCategory: "",
+            });
         } else {
             setfvalid(true);
         }
@@ -73,6 +106,7 @@ export default function Manufacture(props) {
     const createProduct = async () => {
         setLoading(true);
         for (var i = 0; i < 5; i++) {
+            let txHash = "";
             await supplyChainContract.methods
                 .manufactureProduct(
                     "product" + i,
@@ -86,8 +120,37 @@ export default function Manufacture(props) {
                 )
                 .send({ from: roles.manufacturer, gas: 999999 })
                 .on("transactionHash", function (hash) {
+                    txHash = hash;
                     handleSetTxhash(hash);
                 });
+                
+            // Save to MongoDB
+            try {
+                // Get the product ID
+                const productCount = await supplyChainContract.methods.productId().call();
+                const productId = parseInt(productCount) - 1; // The ID of the product just created
+                
+                const productToSave = {
+                    productId: productId,
+                    manufacturerName: "product" + i,
+                    manufacturerDetails: "manufacturer" + 1,
+                    manufacturerLocation: {
+                        longitude: "98",
+                        latitude: "89",
+                    },
+                    productName: "mi" + i,
+                    productCode: 99 + i,
+                    productPrice: 12000,
+                    productCategory: "electronics",
+                    currentOwner: roles.manufacturer,
+                    transactionHash: txHash,
+                };
+                
+                await axios.post(`${API_URL}/products`, productToSave);
+                console.log("Product saved to MongoDB");
+            } catch (error) {
+                console.error("Error saving product to MongoDB:", error);
+            }
         }
         setLoading(false);
     };

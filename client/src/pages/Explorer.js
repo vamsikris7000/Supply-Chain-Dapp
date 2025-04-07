@@ -15,6 +15,7 @@ import { MapContainer } from "../components/map";
 import Button from "@material-ui/core/Button";
 import { useStyles } from "../components/Styles";
 import Loader from "../components/Loader";
+import axios from "axios";
 
 const columns = [
   { id: "id", label: "Universal ID", minWidth: 170 },
@@ -51,6 +52,7 @@ export default function Explorer(props) {
   const [open, setOpen] = React.useState(false);
   const [openRecipt, setOpenRecipt] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
+  const API_URL = "http://localhost:5000/api";
 
   const findProduct = async (search) => {
     var arr = [];
@@ -59,6 +61,89 @@ export default function Explorer(props) {
     try {
       setProductData([]);
       setProductHistory([]);
+      
+      // First try to get from MongoDB
+      try {
+        const { data } = await axios.get(`${API_URL}/products/${parseInt(search)}`);
+        if (data) {
+          // Product found in MongoDB
+          console.log("Product found in MongoDB:", data);
+          
+          // Format data to match contract data structure
+          var a = [
+            data.productId.toString(),
+            data.productCode.toString(),
+            data.currentOwner,
+            data.manufacturerName,
+            data.manufacturerName,
+            data.manufacturerDetails,
+            data.manufacturerLocation.longitude,
+            data.manufacturerLocation.latitude,
+          ];
+          
+          var b = [
+            new Date(data.createdAt).toLocaleString(),
+            data.productName,
+            data.productPrice.toString(),
+            data.productCategory,
+          ];
+          
+          var c = [
+            data.productStatus,
+            "0", // Placeholder for transaction hash - will be replaced with real data
+          ];
+          
+          temp.push(a);
+          temp.push(b);
+          temp.push(c);
+          setProductData(temp);
+          
+          // Format transaction history
+          if (data.transactionHistory && data.transactionHistory.length > 0) {
+            arr = [];
+            for (var i = 0; i < data.transactionHistory.length; i++) {
+              const hist = data.transactionHistory[i];
+              var histTemp = [];
+              
+              var h = [
+                data.productId.toString(),
+                data.productCode.toString(),
+                hist.fromAddress,
+                data.manufacturerName,
+                data.manufacturerName,
+                data.manufacturerDetails,
+                data.manufacturerLocation.longitude,
+                data.manufacturerLocation.latitude,
+              ];
+              
+              var k = [
+                new Date(hist.timestamp).toLocaleString(),
+                data.productName,
+                data.productPrice.toString(),
+                data.productCategory,
+              ];
+              
+              var j = [
+                hist.action,
+                hist.transactionHash,
+              ];
+              
+              histTemp.push(h);
+              histTemp.push(k);
+              histTemp.push(j);
+              arr.push(histTemp);
+            }
+            setProductHistory(arr);
+          }
+          
+          setLoading(false);
+          return;
+        }
+      } catch (mongoErr) {
+        console.log("Product not found in MongoDB, checking blockchain...");
+      }
+      
+      // If not found in MongoDB, get from blockchain
       var a = await supplyChainContract.methods
         .fetchProductPart1(parseInt(search), "product", 0)
         .call();
@@ -72,6 +157,31 @@ export default function Explorer(props) {
       temp.push(b);
       temp.push(c);
       setProductData(temp);
+      
+      // Save product to MongoDB
+      try {
+        const productToSave = {
+          productId: parseInt(a[0]),
+          manufacturerName: a[3],
+          manufacturerDetails: a[5],
+          manufacturerLocation: {
+            longitude: a[6],
+            latitude: a[7],
+          },
+          productName: b[1],
+          productCode: parseInt(a[1]),
+          productPrice: parseInt(b[2]),
+          productCategory: b[3],
+          currentOwner: a[2],
+          transactionHash: c[1],
+        };
+        
+        await axios.post(`${API_URL}/products`, productToSave);
+        console.log("Product saved to MongoDB");
+      } catch (saveErr) {
+        console.log("Error saving to MongoDB:", saveErr);
+      }
+      
       arr = [];
       var l = await supplyChainContract.methods
         .fetchProductHistoryLength(parseInt(search))
@@ -93,6 +203,21 @@ export default function Explorer(props) {
         temp.push(k);
         temp.push(j);
         arr.push(temp);
+        
+        // Update MongoDB with transaction history
+        try {
+          const historyToSave = {
+            productStatus: j[0],
+            action: j[0],
+            transactionHash: j[1],
+            fromAddress: h[2],
+            toAddress: h[2],
+          };
+          
+          await axios.put(`${API_URL}/products/${parseInt(search)}`, historyToSave);
+        } catch (histErr) {
+          console.log("Error updating history in MongoDB:", histErr);
+        }
       }
       setProductHistory(arr);
     } catch (e) {
